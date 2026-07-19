@@ -1,0 +1,56 @@
+# kube-prometheus-stack values — e2-medium(4GB) x2 노드에 맞춘 리소스 축소 설정
+# 노드 CPU가 이미 빠듯하므로(ArgoCD 등) requests를 낮게 잡는다.
+# ch6에서 CSI DaemonSet(240m) 추가 시 더 축소가 필요할 수 있다.
+
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    retention: 6h
+    # 로컬 학습 환경 — PV 없이 emptyDir로 (노드 디스크 절약)
+    storageSpec: {}
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  # 기본 admin 비밀번호 (학습용 — 운영에서는 Secret 관리)
+  adminPassword: notiflex-admin
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+nodeExporter:
+  enabled: true
+
+# node-exporter DaemonSet 리소스도 축소
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
