@@ -8,9 +8,6 @@ import (
 	"sync/atomic"
 )
 
-// version은 현재 실행 중인 Notiflex API의 버전이다.
-const version = "v0.1.1"
-
 // counter는 /id 요청마다 순차적으로 증가하는 인메모리 카운터이다.
 var counter atomic.Uint64
 
@@ -41,14 +38,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// versionHandler는 현재 API 버전과 처리한 Pod 이름을 반환한다.
-func versionHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
-		"version": version,
-		"pod":     podName(),
-	})
-}
-
 // idHandler는 순차 고유 ID를 생성하고, 생성한 Pod 이름을 함께 반환한다.
 func idHandler(w http.ResponseWriter, r *http.Request) {
 	id := counter.Add(1)
@@ -62,10 +51,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/id", idHandler)
-	mux.HandleFunc("/version", versionHandler)
 
 	addr := ":8080"
-	log.Printf("Notiflex API %s listening on %s (pod=%s)", version, addr, podName())
+	log.Printf("Notiflex API listening on %s (pod=%s)", addr, podName())
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
