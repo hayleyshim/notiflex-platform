@@ -1,0 +1,14 @@
+# Fluent Bit (grafana/fluent-bit) — 모든 노드의 컨테이너 로그를 수집해 Loki로 전송
+# DaemonSet으로 배포되어 노드마다 1개씩 뜬다.
+
+# SingleBinary Loki 서비스 주소 (gateway 비활성이므로 loki:3100로 직접 전송)
+loki:
+  serviceName: loki.monitoring.svc.cluster.local
+  servicePort: 3100
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 48Mi
+  limits:
+    memory: 96Mi
