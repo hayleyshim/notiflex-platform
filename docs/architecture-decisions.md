@@ -58,3 +58,27 @@
 - cutover가 한순간에 일어나 롤링 업데이트처럼 두 버전이 섞이지 않음
 - 문제 발견 시 승격을 막아 사용자 노출을 원천 차단 가능
 - ArgoCD와 같은 클러스터에서 동작하며 Rollout CRD로 GitOps 흐름 유지
+
+## ADR-008: 캐시/상태 공유로 Valkey 채택 (6장)
+**시점**: 2026-07 / **결정**: Pod 간 공유 카운터로 Valkey(standalone)를 채택하고 Redis·Memcached·DragonflyDB는 쓰지 않는다.
+**이유**:
+- Redis 100% 호환이면서 BSD 라이선스라 상용 환경에서도 라이선스 걱정 없음 (Redis는 SSPL)
+- `INCR` 원자적 증가로 여러 Pod이 동시 호출해도 ID 중복 없이 순차 발급
+- 영속성이 있어 Pod 재시작 후에도 카운터 유지 (Memcached는 영속성·INCR 부재로 부적합)
+- Bitnami Helm 차트로 간편 설치, standalone 모드로 경량 구동
+
+## ADR-009: 시크릿 관리로 CSI Driver + GCP Secret Manager 채택 (6장)
+**시점**: 2026-07 / **결정**: 시크릿을 Secrets Store CSI Driver + GCP Secret Manager + Workload Identity로 관리하고 Sealed Secrets·External Secrets Operator·평문 K8s Secret은 쓰지 않는다.
+**이유**:
+- GKE 네이티브 통합 — Workload Identity가 GKE KSA와 GCP IAM을 직접 연결
+- SA 키 파일 불필요 (OIDC 토큰) → 키 유출 위험 제거
+- Secret Manager가 시크릿의 단일 진실 소스, CSI로 Pod에 파일 마운트
+- K8s Secret은 base64 인코딩일 뿐 암호화가 아니고 Git 커밋도 불가
+
+## ADR-010: 배포 전략을 Blue/Green에서 Canary로 진화 (6장)
+**시점**: 2026-07 / **결정**: 무중단 배포를 Canary(20/50/80/100 점진)로 전환한다. 도구는 Argo Rollouts를 유지하고 strategy만 변경한다.
+**이유**:
+- 전체가 아닌 20% 사용자만 먼저 노출해 위험을 최소화 (Blue/Green은 0→100% 즉시)
+- 각 단계에서 pause로 관찰, 문제 시 abort로 stable 즉시 복원
+- 리소스 효율 — Canary 1.2x vs Blue/Green 2x (CPU 제약 환경에 유리)
+- 새 도구 설치 없이 같은 Rollout CRD에서 strategy만 전환 ("점진적 고도화")
