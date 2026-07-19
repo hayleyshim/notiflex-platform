@@ -22,9 +22,10 @@
 | ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API, 외부 IP 35.216.9.148, HealthCheckPolicy |
 | ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts Blue/Green, v0.2.0→v0.3.0 승격 검증 |
 | ch5 | 5.4 ADR 기록 | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설 (ADR-001~007) |
-| ch6 | 6.1 캐시 | ⬜ | | |
-| ch6 | 6.2 시크릿 관리 | ⬜ | | |
-| ch6 | 6.3 Canary 전환 | ⬜ | | |
+| ch6 | 6.1 캐시 | ✅ | 2026-07-19 | Valkey standalone, /id를 INCR로 (Pod 간 공유) |
+| ch6 | 6.2 시크릿 관리 | ✅ | 2026-07-19 | CSI + Secret Manager + Workload Identity, 파일 마운트 |
+| ch6 | 6.3 Canary 전환 | ✅ | 2026-07-19 | Blue/Green→Canary(20/50/80), v0.6.0 점진 배포 |
+| ch6 | 6.4 아키텍처 스냅샷 | ✅ | 2026-07-19 | claude-context/architecture.md 신설 |
 | ch7 | 7.2 멀티 노드풀 | ⬜ | | |
 | ch7 | 7.3 App of Apps | ⬜ | | |
 | ch7 | 7.4 멀티테넌시 | ⬜ | | |
@@ -51,15 +52,19 @@
 | 알림 (ch4) | PrometheusRule + Alertmanager | Grafana Alerting, PagerDuty, Cloud Monitoring | GitOps 호환(CRD를 Git 관리), 이미 설치됨(추가 비용 0), 실무 표준 라우팅 |
 | 외부 트래픽 (ch5) | Gateway API | Ingress NGINX, Istio, Traefik | K8s 공식 표준, GKE 네이티브(Controller 불필요), Gateway/HTTPRoute 역할 분리, Blue/Green 연동 |
 | 무중단 배포 (ch5) | Blue/Green (Argo Rollouts) | 롤링 업데이트, Flagger, Istio | preview로 사전 검증, 한순간 cutover, 문제 시 승격 차단, ArgoCD와 GitOps 유지 |
+| 캐시/상태 공유 (ch6) | Valkey | Redis, Memcached, DragonflyDB | Redis 호환+BSD 라이선스, INCR 원자적 ID, 영속성(재시작 유지), Bitnami 차트 |
+| 시크릿 관리 (ch6) | CSI Driver + Secret Manager | Sealed Secrets, External Secrets, kubectl secret | GKE 네이티브, Workload Identity로 SA키 불필요, 단일 진실 소스, 파일 마운트 |
+| 배포 전략 진화 (ch6) | Canary (Argo Rollouts) | Blue/Green 유지, Rolling | 20/50/80 점진으로 위험 최소화, 리소스 1.2x(vs B/G 2x), 도구 변경 없이 strategy만 전환 |
 
 ## 현재 버전
 
 | 컴포넌트 | 버전 | 변경 이력 |
 |---------|------|----------|
 | Go | 1.25 | 초기 (OTel/valkey 대비 처음부터 1.25) |
-| Notiflex 이미지 | api:sha-329db12 (v0.3.0) | v0.1.0→v0.1.1→v0.1.2→v0.2.0→v0.3.0 (Blue/Green, ch5.3) |
+| Notiflex 이미지 | api:sha-865dad5 (v0.6.0) | …→v0.4.0(Valkey)→v0.5.0(CSI Secret)→v0.6.0(Canary) |
 | ArgoCD | v3.4.5 | ch3.2 설치 (stable manifest) |
-| Argo Rollouts | v1.9.1 | ch5.3 설치 (Blue/Green) |
+| Argo Rollouts | v1.9.1 | ch5.3 설치, ch6.3 Canary 전략으로 전환 |
+| Valkey | bitnami/valkey standalone | ch6.1 설치 (공유 카운터) |
 | kube-prometheus-stack | 87.17.0 | ch4.2 설치 (Prometheus+Grafana+Alertmanager) |
 | Loki | 3.6.8 (chart 7.1.0) | ch4.3 설치 (SingleBinary, PV 2Gi) |
 | Fluent Bit | 2.1.0 (chart 2.6.0) | ch4.3 설치 (DaemonSet) |
@@ -70,9 +75,9 @@
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot, disk 30GB) | 2 | notiflex-api(2), ArgoCD, 관측 스택(Prometheus/Grafana/Loki/Fluent Bit/Alertmanager) |
+| default-pool | e2-medium (Spot, disk 30GB) | **3 (임시 증설)** | notiflex-api(Canary), Valkey, ArgoCD, 관측 스택, CSI Secret DaemonSet |
 
-> ⚠️ ch4 관측 스택 설치 후 노드 CPU 할당이 84~90%로 상승. ch6 진입(CSI DaemonSet 240m) 전에 Prometheus/Grafana/Alertmanager requests를 5m으로 축소 필요.
+> ⚠️ ch6.2 CSI(240m) 수용 위해 default-pool 2→3노드 임시 증설 + Loki/FluentBit 임시 제거 + 관측 스택 requests 5m~2m 축소 + replicas 1. **ch7.2 노드풀 추가 후 복원** (memory: todo-ch7-restore-resources).
 
 ## 트러블슈팅 이력
 
@@ -86,3 +91,6 @@
 | 4.4 | 알림 테스트 시 Pod 삭제로는 restartCount가 안 오름 | Pod 삭제는 새 Pod(restart=0) 생성이라 무효. liveness probe를 잘못된 포트로 패치해 컨테이너 크래시 루프 유발(같은 Pod 내 재시작). 테스트 중엔 ArgoCD auto-sync를 잠시 해제, 후 복원 |
 | 5.3 | app/ 수정 시마다 CI SHA 태그 vs 로컬 버전 태그 충돌 반복 | CI가 커밋을 sha 태그로 다시 태깅해 rollout.yaml을 덮어씀. `git pull --no-rebase`로 충돌을 로컬 버전 태그(v0.x.0)로 해소 후 병합 커밋. 코드는 항상 최신 버전으로 수렴. 근본 해결은 SHA 태그 통일 또는 ArgoCD Image Updater |
 | 5.3 | 데모용 직접 배포 후 auto-sync 복원 시 ArgoCD가 옛 리비전 배포 | 폴링 지연으로 최신 커밋 전 상태를 동기화. `kubectl annotate app ... argocd.argoproj.io/refresh=hard`로 강제 새로고침해 수렴 |
+| 6.2 | CSI(240m) 활성화 후 valkey/notiflex Pending, 2노드 CPU 96%+ | Loki/FluentBit 제거+관측 requests 축소로도 부족 → default-pool 3노드로 임시 증설해 해소. valkey STS 50m 유령 pod은 helm upgrade로 재생성 |
+| 6.2 | 로컬 Go/Docker 없어 go.sum 생성 불가 | Dockerfile 빌드 단계에서 `go mod tidy` 실행해 컨테이너 안에서 의존성/go.sum 해결 (COPY go.sum 불필요) |
+| 6.3 | Canary weight가 0%로 표시됨 | 트래픽 라우터(Gateway 플러그인) 미연동이라 replica 기반 canary. 스텝(Step 6/6)·pause는 정상 동작. 정밀 %분할은 trafficRouting 플러그인 추가 시 |
