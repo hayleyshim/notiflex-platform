@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: notiflex-api
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-329db12
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:v0.4.0
           ports:
             - containerPort: 8080
           env:
@@ -25,6 +25,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: VALKEY_ADDR
+              value: valkey-primary.notiflex.svc.cluster.local:6379
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: valkey-password
           resources:
             requests:
               cpu: 50m
