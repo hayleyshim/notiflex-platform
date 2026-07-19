@@ -9,7 +9,7 @@ import (
 )
 
 // version은 현재 실행 중인 Notiflex API의 버전이다.
-const version = "v0.1.1"
+const version = "v0.1.2"
 
 // counter는 /id 요청마다 순차적으로 증가하는 인메모리 카운터이다.
 var counter atomic.Uint64
