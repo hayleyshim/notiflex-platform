@@ -12,7 +12,7 @@ import (
 )
 
 // version은 현재 실행 중인 Notiflex API의 버전이다.
-const version = "v0.5.0"
+const version = "v0.6.0"
 
 // valkeyClient는 Pod 간 공유되는 중앙 카운터(Valkey)에 연결하는 클라이언트다.
 var valkeyClient valkey.Client
