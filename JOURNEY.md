@@ -16,9 +16,9 @@
 | ch3 | 3.3 기능 추가 | ✅ | 2026-07-19 | /version 엔드포인트, 롤링 업데이트 + git revert 롤백 |
 | ch3 | 3.4 CI | ✅ | 2026-07-19 | GitHub Actions, SHA 태그 빌드/푸시 (방식 A) |
 | ch3 | 3.5 CI-CD 연결 | ✅ | 2026-07-19 | CI가 매니페스트 자동 갱신→ArgoCD 배포, E2E 검증 |
-| ch4 | 4.2 메트릭 모니터링 | ⬜ | | |
-| ch4 | 4.3 로그 수집 | ⬜ | | |
-| ch4 | 4.4 알림 | ⬜ | | |
+| ch4 | 4.2 메트릭 모니터링 | ✅ | 2026-07-19 | kube-prometheus-stack, Notiflex 대시보드 |
+| ch4 | 4.3 로그 수집 | ✅ | 2026-07-19 | Loki(SingleBinary) + Fluent Bit, Grafana Loki 데이터소스 |
+| ch4 | 4.4 알림 | ✅ | 2026-07-19 | PrometheusRule 2종, firing E2E 검증 |
 | ch5 | 5.2 트래픽 관리 | ⬜ | | |
 | ch5 | 5.3 무중단 배포 | ⬜ | | |
 | ch6 | 6.1 캐시 | ⬜ | | |
@@ -45,6 +45,9 @@
 | gcloud 설치 | 공식 설치 스크립트 (홈 디렉터리) | Homebrew | Homebrew 미설치 + sudo 대화형 입력 불가로 sudo 불필요한 공식 스크립트로 전환 |
 | GitOps 도구 (ch3) | ArgoCD | Flux, Jenkins X, Spinnaker | Web UI로 배포 상태 시각화, Application CRD 선언적 관리, selfHeal, e2-medium에서 구동 가능 |
 | CI 도구 (ch3) | GitHub Actions | Cloud Build, GitLab CI, Jenkins | GitHub 네이티브(별도 서버 불필요), YAML 선언적, private 월 2000분 무료, GCP 인증 간편 |
+| 메트릭 모니터링 (ch4) | Prometheus + Grafana | Datadog, CloudWatch, Cloud Monitoring | 오픈소스 표준(무료), Helm 번들 일괄 설치, Grafana로 로그/트레이스까지 통합 |
+| 로그 수집 (ch4) | Loki + Fluent Bit | ELK, CloudWatch, Cloud Logging | 경량(128Mi, ELK 2Gi+ 불가), Grafana 네이티브 통합, 라벨 인덱싱으로 저비용 |
+| 알림 (ch4) | PrometheusRule + Alertmanager | Grafana Alerting, PagerDuty, Cloud Monitoring | GitOps 호환(CRD를 Git 관리), 이미 설치됨(추가 비용 0), 실무 표준 라우팅 |
 
 ## 현재 버전
 
@@ -53,6 +56,9 @@
 | Go | 1.25 | 초기 (OTel/valkey 대비 처음부터 1.25) |
 | Notiflex 이미지 | api:sha-cf00e05 (v0.1.2) | v0.1.0 → v0.1.1 → CI SHA 태그 전환 (ch3.4) |
 | ArgoCD | v3.4.5 | ch3.2 설치 (stable manifest) |
+| kube-prometheus-stack | 87.17.0 | ch4.2 설치 (Prometheus+Grafana+Alertmanager) |
+| Loki | 3.6.8 (chart 7.1.0) | ch4.3 설치 (SingleBinary, PV 2Gi) |
+| Fluent Bit | 2.1.0 (chart 2.6.0) | ch4.3 설치 (DaemonSet) |
 | Kafka | - | 미설치 (ch8) |
 | OTel SDK | - | 미설치 (ch8) |
 
@@ -60,7 +66,9 @@
 
 | 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
 |--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot, disk 30GB) | 2 | notiflex-api (replicas 2) |
+| default-pool | e2-medium (Spot, disk 30GB) | 2 | notiflex-api(2), ArgoCD, 관측 스택(Prometheus/Grafana/Loki/Fluent Bit/Alertmanager) |
+
+> ⚠️ ch4 관측 스택 설치 후 노드 CPU 할당이 84~90%로 상승. ch6 진입(CSI DaemonSet 240m) 전에 Prometheus/Grafana/Alertmanager requests를 5m으로 축소 필요.
 
 ## 트러블슈팅 이력
 
@@ -70,3 +78,5 @@
 |------|------|------|
 | 2.5 | 클러스터 생성 직후 GatewayClass 인스턴스가 비어 있음 | CRD는 정상 설치됨. GKE 컨트롤러 리컨실까지 약 2분 대기하니 자동 등장 (재활성화 불필요) |
 | 2.6 | `gcloud builds submit`이 두 번 PERMISSION_DENIED | Cloud Build API를 빌드 직전 활성화해 권한 전파 미완료가 원인. 서비스 에이전트 프로비저닝 후 재시도하니 성공 |
+| 4.3 | Loki가 `mkdir /var/loki: read-only file system`으로 CrashLoop | persistence 비활성 시 쓰기 볼륨이 없어 발생. SingleBinary에 PV 2Gi 부여. StatefulSet 볼륨템플릿은 in-place 수정 불가라 StatefulSet 삭제 후 helm upgrade로 재생성 |
+| 4.4 | 알림 테스트 시 Pod 삭제로는 restartCount가 안 오름 | Pod 삭제는 새 Pod(restart=0) 생성이라 무효. liveness probe를 잘못된 포트로 패치해 컨테이너 크래시 루프 유발(같은 Pod 내 재시작). 테스트 중엔 ArgoCD auto-sync를 잠시 해제, 후 복원 |
