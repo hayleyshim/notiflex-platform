@@ -69,11 +69,16 @@ spec:
             volumeAttributes:
               secretProviderClass: notiflex-secrets
   strategy:
-    blueGreen:
-      # 현재 트래픽을 받는 서비스 (active)
-      activeService: notiflex-api
-      # 새 버전 미리보기 서비스 (preview) — 프로모션 전 테스트용
-      previewService: notiflex-api-preview
-      # 30초 후 자동으로 active로 승격
-      autoPromotionEnabled: true
-      autoPromotionSeconds: 30
+    canary:
+      # 안정(현재) 버전 트래픽을 받는 서비스
+      stableService: notiflex-api
+      # canary(새) 버전 트래픽을 받는 서비스 (5장 preview 서비스 재사용)
+      canaryService: notiflex-api-preview
+      # 트래픽을 20% → 50% → 80% → 100%로 점진 이동, 각 단계 30초 관찰
+      steps:
+        - setWeight: 20
+        - pause: { duration: 30s }
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - setWeight: 80
+        - pause: { duration: 30s }
