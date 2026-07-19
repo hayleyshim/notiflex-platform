@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: notiflex-api
   namespace: notiflex
@@ -21,7 +21,6 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Downward API로 Pod 이름을 주입 → /id, /health 응답에 표시
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -45,3 +44,12 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+  strategy:
+    blueGreen:
+      # 현재 트래픽을 받는 서비스 (active)
+      activeService: notiflex-api
+      # 새 버전 미리보기 서비스 (preview) — 프로모션 전 테스트용
+      previewService: notiflex-api-preview
+      # 30초 후 자동으로 active로 승격
+      autoPromotionEnabled: true
+      autoPromotionSeconds: 30
