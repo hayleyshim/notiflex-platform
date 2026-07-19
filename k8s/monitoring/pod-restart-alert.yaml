@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: notiflex-alerts
+  namespace: monitoring
+  labels:
+    # Prometheus ruleSelector와 일치해야 규칙이 로드됨 (Helm release 이름)
+    release: kube-prometheus
+spec:
+  groups:
+    - name: notiflex-alerts
+      rules:
+        # 5분 내 재시작이 2회를 초과하면 경고 (CrashLoop 조짐)
+        - alert: PodRestartTooMany
+          expr: increase(kube_pod_container_status_restarts_total{namespace="notiflex"}[5m]) > 2
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} 재시작 과다"
+            description: "5분 내 {{ $value }}회 재시작"
+
+        # 가용 Pod이 1개 미만으로 5분 지속되면 위험 (서비스 다운 위험)
+        - alert: NotiflexApiDown
+          expr: kube_deployment_status_replicas_available{namespace="notiflex", deployment="notiflex-api"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Notiflex API 가용 Pod 없음"
+            description: "notiflex-api의 available replica가 5분간 1개 미만"
