@@ -19,8 +19,9 @@
 | ch4 | 4.2 메트릭 모니터링 | ✅ | 2026-07-19 | kube-prometheus-stack, Notiflex 대시보드 |
 | ch4 | 4.3 로그 수집 | ✅ | 2026-07-19 | Loki(SingleBinary) + Fluent Bit, Grafana Loki 데이터소스 |
 | ch4 | 4.4 알림 | ✅ | 2026-07-19 | PrometheusRule 2종, firing E2E 검증 |
-| ch5 | 5.2 트래픽 관리 | ⬜ | | |
-| ch5 | 5.3 무중단 배포 | ⬜ | | |
+| ch5 | 5.2 트래픽 관리 | ✅ | 2026-07-19 | Gateway API, 외부 IP 35.216.9.148, HealthCheckPolicy |
+| ch5 | 5.3 무중단 배포 | ✅ | 2026-07-19 | Argo Rollouts Blue/Green, v0.2.0→v0.3.0 승격 검증 |
+| ch5 | 5.4 ADR 기록 | ✅ | 2026-07-19 | docs/architecture-decisions.md 신설 (ADR-001~007) |
 | ch6 | 6.1 캐시 | ⬜ | | |
 | ch6 | 6.2 시크릿 관리 | ⬜ | | |
 | ch6 | 6.3 Canary 전환 | ⬜ | | |
@@ -48,14 +49,17 @@
 | 메트릭 모니터링 (ch4) | Prometheus + Grafana | Datadog, CloudWatch, Cloud Monitoring | 오픈소스 표준(무료), Helm 번들 일괄 설치, Grafana로 로그/트레이스까지 통합 |
 | 로그 수집 (ch4) | Loki + Fluent Bit | ELK, CloudWatch, Cloud Logging | 경량(128Mi, ELK 2Gi+ 불가), Grafana 네이티브 통합, 라벨 인덱싱으로 저비용 |
 | 알림 (ch4) | PrometheusRule + Alertmanager | Grafana Alerting, PagerDuty, Cloud Monitoring | GitOps 호환(CRD를 Git 관리), 이미 설치됨(추가 비용 0), 실무 표준 라우팅 |
+| 외부 트래픽 (ch5) | Gateway API | Ingress NGINX, Istio, Traefik | K8s 공식 표준, GKE 네이티브(Controller 불필요), Gateway/HTTPRoute 역할 분리, Blue/Green 연동 |
+| 무중단 배포 (ch5) | Blue/Green (Argo Rollouts) | 롤링 업데이트, Flagger, Istio | preview로 사전 검증, 한순간 cutover, 문제 시 승격 차단, ArgoCD와 GitOps 유지 |
 
 ## 현재 버전
 
 | 컴포넌트 | 버전 | 변경 이력 |
 |---------|------|----------|
 | Go | 1.25 | 초기 (OTel/valkey 대비 처음부터 1.25) |
-| Notiflex 이미지 | api:sha-cf00e05 (v0.1.2) | v0.1.0 → v0.1.1 → CI SHA 태그 전환 (ch3.4) |
+| Notiflex 이미지 | api:sha-329db12 (v0.3.0) | v0.1.0→v0.1.1→v0.1.2→v0.2.0→v0.3.0 (Blue/Green, ch5.3) |
 | ArgoCD | v3.4.5 | ch3.2 설치 (stable manifest) |
+| Argo Rollouts | v1.9.1 | ch5.3 설치 (Blue/Green) |
 | kube-prometheus-stack | 87.17.0 | ch4.2 설치 (Prometheus+Grafana+Alertmanager) |
 | Loki | 3.6.8 (chart 7.1.0) | ch4.3 설치 (SingleBinary, PV 2Gi) |
 | Fluent Bit | 2.1.0 (chart 2.6.0) | ch4.3 설치 (DaemonSet) |
@@ -80,3 +84,5 @@
 | 2.6 | `gcloud builds submit`이 두 번 PERMISSION_DENIED | Cloud Build API를 빌드 직전 활성화해 권한 전파 미완료가 원인. 서비스 에이전트 프로비저닝 후 재시도하니 성공 |
 | 4.3 | Loki가 `mkdir /var/loki: read-only file system`으로 CrashLoop | persistence 비활성 시 쓰기 볼륨이 없어 발생. SingleBinary에 PV 2Gi 부여. StatefulSet 볼륨템플릿은 in-place 수정 불가라 StatefulSet 삭제 후 helm upgrade로 재생성 |
 | 4.4 | 알림 테스트 시 Pod 삭제로는 restartCount가 안 오름 | Pod 삭제는 새 Pod(restart=0) 생성이라 무효. liveness probe를 잘못된 포트로 패치해 컨테이너 크래시 루프 유발(같은 Pod 내 재시작). 테스트 중엔 ArgoCD auto-sync를 잠시 해제, 후 복원 |
+| 5.3 | app/ 수정 시마다 CI SHA 태그 vs 로컬 버전 태그 충돌 반복 | CI가 커밋을 sha 태그로 다시 태깅해 rollout.yaml을 덮어씀. `git pull --no-rebase`로 충돌을 로컬 버전 태그(v0.x.0)로 해소 후 병합 커밋. 코드는 항상 최신 버전으로 수렴. 근본 해결은 SHA 태그 통일 또는 ArgoCD Image Updater |
+| 5.3 | 데모용 직접 배포 후 auto-sync 복원 시 ArgoCD가 옛 리비전 배포 | 폴링 지연으로 최신 커밋 전 상태를 동기화. `kubectl annotate app ... argocd.argoproj.io/refresh=hard`로 강제 새로고침해 수렴 |
