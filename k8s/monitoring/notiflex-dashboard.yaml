@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notiflex-dashboard
+  namespace: monitoring
+  labels:
+    # Grafana 사이드카가 이 라벨이 붙은 ConfigMap을 감지해 대시보드로 자동 로드한다
+    grafana_dashboard: "1"
+data:
+  notiflex-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "schemaVersion": 39,
+      "title": "Notiflex API",
+      "tags": ["notiflex"],
+      "time": { "from": "now-1h", "to": "now" },
+      "refresh": "30s",
+      "templating": { "list": [] },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "가용 Pod (available replicas)",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "fieldConfig": { "defaults": { "unit": "short" } },
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas_available{namespace=\"notiflex\", deployment=\"notiflex-api\"}",
+              "legendFormat": "available"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Pod 재시작 누적",
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+          "fieldConfig": { "defaults": { "unit": "short" } },
+          "targets": [
+            {
+              "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"notiflex\", container=\"notiflex-api\"})",
+              "legendFormat": "restarts"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod CPU 사용량 (cores)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "fieldConfig": { "defaults": { "unit": "short" } },
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"notiflex\", container=\"notiflex-api\"}[5m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod 메모리 사용량 (working set)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"notiflex\", container=\"notiflex-api\"})",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod 네트워크 수신 (bytes/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "Bps" } },
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"notiflex\"}[5m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        }
+      ]
+    }
