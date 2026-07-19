@@ -12,7 +12,7 @@ import (
 )
 
 // version은 현재 실행 중인 Notiflex API의 버전이다.
-const version = "v0.4.0"
+const version = "v0.5.0"
 
 // valkeyClient는 Pod 간 공유되는 중앙 카운터(Valkey)에 연결하는 클라이언트다.
 var valkeyClient valkey.Client
@@ -43,7 +43,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // 10회(3초 간격) 재시도한다. 재시도가 없으면 CrashLoopBackOff에 빠질 수 있다.
 func connectValkey() valkey.Client {
 	addr := os.Getenv("VALKEY_ADDR")
+
+	// 비밀번호는 CSI로 마운트된 파일(VALKEY_PASSWORD_FILE)을 우선 사용하고,
+	// 없으면 환경변수(VALKEY_PASSWORD)로 폴백한다.
+	// 파일 방식은 Secret이 GCP Secret Manager에서 직접 마운트되므로 더 안전하다.
 	password := os.Getenv("VALKEY_PASSWORD")
+	if pwFile := os.Getenv("VALKEY_PASSWORD_FILE"); pwFile != "" {
+		if data, err := os.ReadFile(pwFile); err == nil {
+			password = string(data)
+			log.Printf("Valkey 비밀번호를 파일에서 로드: %s", pwFile)
+		} else {
+			log.Printf("VALKEY_PASSWORD_FILE 읽기 실패(%s), env로 폴백: %v", pwFile, err)
+		}
+	}
 
 	var client valkey.Client
 	var err error

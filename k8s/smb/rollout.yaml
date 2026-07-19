@@ -15,9 +15,11 @@ spec:
       labels:
         app: notiflex-api
     spec:
+      # Workload Identity로 GCP Secret Manager에 접근하는 KSA
+      serviceAccountName: notiflex-sa
       containers:
         - name: notiflex-api
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-3fb1b6e
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:v0.5.0
           ports:
             - containerPort: 8080
           env:
@@ -32,6 +34,13 @@ spec:
                 secretKeyRef:
                   name: valkey
                   key: valkey-password
+            # CSI로 마운트된 Secret Manager 비밀번호 파일 (env보다 우선 사용)
+            - name: VALKEY_PASSWORD_FILE
+              value: /mnt/secrets/valkey-password
+          volumeMounts:
+            - name: secrets
+              mountPath: /mnt/secrets
+              readOnly: true
           resources:
             requests:
               cpu: 20m
@@ -51,6 +60,14 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        # GKE managed CSI driver로 Secret Manager 시크릿을 파일로 마운트
+        - name: secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: notiflex-secrets
   strategy:
     blueGreen:
       # 현재 트래픽을 받는 서비스 (active)
