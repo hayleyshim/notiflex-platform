@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: notiflex-api
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:v0.1.1
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-03e7300
           ports:
             - containerPort: 8080
           env:
