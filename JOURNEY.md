@@ -12,10 +12,10 @@
 | ch2 | 2.5 GKE 클러스터 | ✅ | 2026-07-19 | notiflex-cluster, e2-medium×2 Spot, Gateway API |
 | ch2 | 2.6 빌드/배포 | ✅ | 2026-07-19 | Cloud Build → api:v0.1.0, replicas 2 |
 | ch2 | 2.7 첫 커밋 | ✅ | 2026-07-19 | Initial commit |
-| ch3 | 3.2 GitOps 도구 | ⬜ | | |
-| ch3 | 3.3 기능 추가 | ⬜ | | |
-| ch3 | 3.4 CI | ⬜ | | |
-| ch3 | 3.5 CI-CD 연결 | ⬜ | | |
+| ch3 | 3.2 GitOps 도구 | ✅ | 2026-07-19 | ArgoCD v3.4.5, private repo 연결, notiflex-smb App |
+| ch3 | 3.3 기능 추가 | ✅ | 2026-07-19 | /version 엔드포인트, 롤링 업데이트 + git revert 롤백 |
+| ch3 | 3.4 CI | ✅ | 2026-07-19 | GitHub Actions, SHA 태그 빌드/푸시 (방식 A) |
+| ch3 | 3.5 CI-CD 연결 | ✅ | 2026-07-19 | CI가 매니페스트 자동 갱신→ArgoCD 배포, E2E 검증 |
 | ch4 | 4.2 메트릭 모니터링 | ⬜ | | |
 | ch4 | 4.3 로그 수집 | ⬜ | | |
 | ch4 | 4.4 알림 | ⬜ | | |
@@ -43,14 +43,16 @@
 | 영역 | 선택 | 검토한 대안 | 선택 이유 |
 |------|------|-----------|----------|
 | gcloud 설치 | 공식 설치 스크립트 (홈 디렉터리) | Homebrew | Homebrew 미설치 + sudo 대화형 입력 불가로 sudo 불필요한 공식 스크립트로 전환 |
+| GitOps 도구 (ch3) | ArgoCD | Flux, Jenkins X, Spinnaker | Web UI로 배포 상태 시각화, Application CRD 선언적 관리, selfHeal, e2-medium에서 구동 가능 |
+| CI 도구 (ch3) | GitHub Actions | Cloud Build, GitLab CI, Jenkins | GitHub 네이티브(별도 서버 불필요), YAML 선언적, private 월 2000분 무료, GCP 인증 간편 |
 
 ## 현재 버전
 
 | 컴포넌트 | 버전 | 변경 이력 |
 |---------|------|----------|
 | Go | 1.25 | 초기 (OTel/valkey 대비 처음부터 1.25) |
-| Notiflex 이미지 | api:v0.1.0 | 초기 배포 |
-| ArgoCD | - | 미설치 (ch3) |
+| Notiflex 이미지 | api:sha-cf00e05 (v0.1.2) | v0.1.0 → v0.1.1 → CI SHA 태그 전환 (ch3.4) |
+| ArgoCD | v3.4.5 | ch3.2 설치 (stable manifest) |
 | Kafka | - | 미설치 (ch8) |
 | OTel SDK | - | 미설치 (ch8) |
 
