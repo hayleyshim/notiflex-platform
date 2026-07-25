@@ -1,0 +1,11 @@
+# 고객: Globex (요금제: standard)
+# 기본값(base)을 그대로 사용하고 테넌트·티어 라벨만 부여한다.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+labels:
+  - pairs:
+      tenant: globex
+      tier: standard
+    includeSelectors: false

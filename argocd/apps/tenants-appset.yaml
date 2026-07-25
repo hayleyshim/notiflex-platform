@@ -1,5 +1,6 @@
-# 고객(테넌트)마다 Application을 자동 생성하는 ApplicationSet.
-# 고객 추가 = 아래 list.elements에 한 줄 추가 → tenants/base가 새 네임스페이스에 배포됨.
+# 고객(테넌트) 온보딩 자동화 ApplicationSet.
+# tenants/customers/ 아래 각 디렉터리를 스캔해 고객마다 Application을 생성한다.
+# 고객 추가 = tenants/customers/<이름>/kustomization.yaml 디렉터리 하나 추가 → 자동 편입.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -11,22 +12,24 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - list:
-        elements:
-          - tenant: acme
-          - tenant: globex
+    - git:
+        repoURL: https://github.com/hayleyshim/notiflex-platform.git
+        revision: main
+        directories:
+          - path: tenants/customers/*
   template:
     metadata:
-      name: 'tenant-{{.tenant}}'
+      # 디렉터리 이름(고객명)으로 Application·네임스페이스를 만든다.
+      name: 'tenant-{{.path.basename}}'
     spec:
       project: tenants
       source:
         repoURL: https://github.com/hayleyshim/notiflex-platform.git
         targetRevision: main
-        path: tenants/base
+        path: '{{.path.path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: 'tenant-{{.tenant}}'
+        namespace: 'tenant-{{.path.basename}}'
       syncPolicy:
         automated:
           prune: true
