@@ -76,7 +76,24 @@ tenants/
 ## 고객 제거(오프보딩)
 
 `tenants/customers/<고객명>/` 디렉터리를 삭제하고 푸시하면, ApplicationSet이
-해당 Application을 정리하고(prune) 네임스페이스·워크로드가 제거된다.
+해당 Application을 제거하고, ApplicationSet 템플릿의 `resources-finalizer`가
+**워크로드·ResourceQuota·NetworkPolicy를 cascade 삭제(prune)** 한다.
+
+```bash
+git rm -r tenants/customers/<고객명>
+git commit -m "chore: offboard <고객명>"
+git push origin main
+```
+
+⚠️ 네임스페이스 `tenant-<고객명>` 은 `CreateNamespace=true` 부수효과로 생성돼
+git이 관리하지 않으므로 **빈 상태로 남는다**. 완전히 지우려면 수동 삭제가 필요하다:
+
+```bash
+kubectl --context <ctx> delete namespace tenant-<고객명>
+```
+
+(단, `.claude/settings.local.json` 의 deny 규칙이 `kubectl delete namespace` 를
+차단하므로, 정책상 사람이 직접 실행해야 한다.)
 
 ## 참고 / 한계
 
