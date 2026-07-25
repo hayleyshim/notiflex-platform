@@ -32,10 +32,10 @@
 | ch8 | 8.1 메시징 | ✅ | 2026-07-25 | Kafka(단일 KRaft)로 /notify 비동기화, 워커 컨슈머, v0.7.0 |
 | ch8 | 8.2 트레이싱 | ✅ | 2026-07-25 | OpenTelemetry+Tempo, Kafka 헤더로 trace 전파, API→워커 단일 트레이스, v0.8.0 |
 | ch8 | 8.3 CronJob | ✅ | 2026-07-25 | notiflex-healthcheck(5분 주기 /health 합성 점검) |
-| ch9 | 9.1 저장소 분석 | ⬜ | | |
-| ch9 | 9.2 회고 | ⬜ | | |
-| ch9 | 9.3 온보딩 문서 | ⬜ | | |
-| ch9 | 9.4 GitAIOps 분석 | ⬜ | | |
+| ch9 | 9.1 저장소 분석 | ✅ | 2026-07-25 | 구조·스택·강점/부채 분석 (retrospective.md §1~3) |
+| ch9 | 9.2 회고 | ✅ | 2026-07-25 | 여정 궤적·배움·부채 ledger (docs/retrospective.md) |
+| ch9 | 9.3 온보딩 문서 | ✅ | 2026-07-25 | docs/onboarding.md 신설 (읽을 순서·저장소 지도·자주 하는 작업) |
+| ch9 | 9.4 GitAIOps 분석 | ✅ | 2026-07-25 | Git=AI·Ops 신뢰경계, 제어 루프·빈틈(IaC) (retrospective.md §6) |
 | ch9 | 9.5 마무리 | ⬜ | | |
 
 ## 도구 선택 기록
