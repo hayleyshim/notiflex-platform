@@ -1,0 +1,22 @@
+# 자식 Application: notiflex 애플리케이션 스택 (k8s/smb)
+# 루트(notiflex-root)가 argocd/apps/ 디렉터리를 스캔해 자동 생성한다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-smb
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/hayleyshim/notiflex-platform.git
+    targetRevision: main
+    path: k8s/smb
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: notiflex
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

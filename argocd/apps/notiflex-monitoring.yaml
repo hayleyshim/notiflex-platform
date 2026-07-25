@@ -1,17 +1,19 @@
+# 자식 Application: 관측 매니페스트 (k8s/monitoring)
+# 기존에 kubectl apply로 수동 관리하던 대시보드·알림·Loki 데이터소스를 GitOps로 편입.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: notiflex-smb
+  name: notiflex-monitoring
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/hayleyshim/notiflex-platform.git
     targetRevision: main
-    path: k8s/smb
+    path: k8s/monitoring
   destination:
     server: https://kubernetes.default.svc
-    namespace: notiflex
+    namespace: monitoring
   syncPolicy:
     automated:
       prune: true

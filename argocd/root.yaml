@@ -1,0 +1,23 @@
+# 루트 Application (App of Apps)
+# argocd/apps/ 디렉터리의 자식 Application 매니페스트를 재귀 스캔해 한꺼번에 관리한다.
+# 새 앱 추가 = argocd/apps/ 에 파일 하나 추가 → 이 루트가 자동으로 생성/동기화.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notiflex-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/hayleyshim/notiflex-platform.git
+    targetRevision: main
+    path: argocd/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true      # argocd/apps/에서 파일 삭제 시 해당 자식 앱도 제거
+      selfHeal: true    # 수동 변경(예: kubectl delete app)을 git 상태로 되돌림

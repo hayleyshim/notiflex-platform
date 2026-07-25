@@ -79,6 +79,21 @@ Argo Rollouts: 20%→50%→80%→100% 점진 전환 (각 30초 pause)
 - 현재 실행: `api:sha-865dad5` (v0.6.0)
 - 배포 전략 진화: Rolling(3장) → Blue/Green(5장) → **Canary(6장, 현재)**
 
+### App of Apps (ch7.3)
+
+여러 ArgoCD Application을 루트 하나로 일괄 관리한다.
+
+```
+argocd/root.yaml  (Application: notiflex-root, path=argocd/apps recurse)
+   └─ 스캔 → 자식 Application 자동 생성·동기화
+        ├─ argocd/apps/notiflex-smb.yaml         → k8s/smb (ns notiflex)
+        └─ argocd/apps/notiflex-monitoring.yaml  → k8s/monitoring (ns monitoring)
+```
+
+- 새 앱 추가 = `argocd/apps/`에 Application 파일 하나 추가 → 루트가 자동 편입.
+- 범위: git 매니페스트만(smb·monitoring). Helm 릴리스(valkey, kube-prometheus-stack)는 아직 GitOps 밖.
+- k8s/monitoring은 이전까지 `kubectl apply` 수동 관리 → 이번에 GitOps로 편입.
+
 ## 관측 가능성
 
 | 도구 | 역할 | 상태 |
