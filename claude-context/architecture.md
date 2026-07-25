@@ -1,4 +1,4 @@
-# Notiflex 아키텍처 스냅샷 (7장 완료 시점)
+# Notiflex 아키텍처 스냅샷 (8장 완료 시점)
 
 > 이 문서는 **현재 시점의 아키텍처 한눈 보기**다. AI가 매 대화에서 전체 그림을 빠르게 잡도록 돕는다.
 > 세부 진행 기록은 `JOURNEY.md`, 결정 이유는 `docs/architecture-decisions.md`(ADR), 매니페스트는 `k8s/`를 참조한다.
@@ -28,9 +28,9 @@
 
 | 노드풀 | role 라벨 | taint | 노드 수 | 워크로드 |
 |--------|-----------|-------|---------|----------|
-| `app-pool` | `role=app` | `dedicated=app:NoSchedule` | 1 | notiflex-api |
-| `data-pool` | `role=data` | `dedicated=data:NoSchedule` | 1 | valkey-primary (stateful 격리) |
-| `default-pool` | `role=platform` | 없음 | 2 | ArgoCD, kube-prometheus-stack, Argo Rollouts |
+| `app-pool` | `role=app` | `dedicated=app:NoSchedule` | 1 | notiflex-api, notiflex-worker |
+| `data-pool` | `role=data` | `dedicated=data:NoSchedule` | 1 | valkey-primary, kafka (stateful 격리) |
+| `default-pool` | `role=platform` | 없음 | 2 | ArgoCD, kube-prometheus-stack(+Tempo), Argo Rollouts, healthcheck CronJob |
 
 - 배치 방식: 전용 풀은 **taint로 격리**, 대상 워크로드는 `nodeSelector`+`toleration`으로 유입. platform은 taint 없는 default-pool에 자연 수렴.
 - notiflex-api 배치는 `k8s/smb/rollout.yaml`(GitOps)에 선언. Valkey는 리포 밖 Helm 릴리스라 StatefulSet에 직접 패치(durable화하려면 Helm values에 반영 필요).
@@ -58,8 +58,13 @@ Service notiflex-api-preview (canary) ─┤  ← Argo Rollouts Canary가 관리
 Rollout notiflex-api (Canary 20→50→80→100)
   └─ Pod (notiflex API, scratch 이미지)
         ├─ INCR → Valkey (valkey-primary:6379, 공유 카운터)
+        ├─ POST /notify → Kafka produce(topic notifications) → 202 즉시 (비동기, ch8.1)
+        │                    └→ notiflex-worker consume → 처리 → Valkey INCR
         └─ 비밀번호 ← CSI 마운트 /mnt/secrets/valkey-password
                        ↑ GCP Secret Manager (Workload Identity, KSA notiflex-sa)
+
+  ※ 전 구간 OpenTelemetry span → Tempo, Kafka 헤더로 trace 전파(API↔워커 단일 트레이스, ch8.2)
+  ※ CronJob notiflex-healthcheck: 5분마다 /health 합성 점검 (ch8.3)
 ```
 
 ## 배포 파이프라인 (GitOps)
@@ -76,8 +81,9 @@ Argo Rollouts: 20%→50%→80%→100% 점진 전환 (각 30초 pause)
 ```
 
 - 이미지 저장소: `asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api`
-- 현재 실행: `api:sha-865dad5` (v0.6.0)
+- 현재 실행: `api:sha-f5d9a80` (v0.8.0) — Kafka 비동기(v0.7.0)+OTel 추적(v0.8.0)
 - 배포 전략 진화: Rolling(3장) → Blue/Green(5장) → **Canary(6장, 현재)**
+- ⚠️ 앱 변경 시 워커 이미지(`k8s/smb/worker.yaml`)는 CI가 자동 갱신 못 함(토큰 workflow 스코프 제약) → **수동 동기화** 필요
 
 ### App of Apps (ch7.3)
 
@@ -127,15 +133,18 @@ AppProject(tenants)  ← 배포 대상을 tenant-* ns + 이 저장소로 제한(
 | Prometheus | 메트릭 수집(scrape) | 동작 (requests 5m로 축소) |
 | Grafana | 메트릭·로그 통합 대시보드 | 동작 (Notiflex 대시보드 포함) |
 | Alertmanager + PrometheusRule | 알림 (PodRestartTooMany, NotiflexApiDown) | 동작 |
-| Loki + Fluent Bit | 로그 수집 | **ch6.2에서 임시 제거** (ch7 복원 예정) |
-| Tempo | 분산 트레이싱 | 미설치 (ch8 예정) |
+| Loki + Fluent Bit | 로그 수집 | **ch6.2에서 임시 제거** (복원 예정) |
+| Tempo | 분산 트레이싱 | **동작** (ch8.2, OTLP 수신, Grafana 데이터소스 연결, emptyDir 임시저장) |
+
+→ 관측 3종: 메트릭(Prometheus)·로그(Loki, 현재 미복원)·트레이스(Tempo). 트레이스로 요청 구간별 지연을 특정.
 
 ## 주요 네임스페이스
 
 | 네임스페이스 | 주요 워크로드 |
 |-------------|--------------|
-| `notiflex` | Rollout notiflex-api(Canary), StatefulSet valkey-primary, Gateway/HTTPRoute, SecretProviderClass |
-| `argocd` | ArgoCD v3.4.5 (7 워크로드: server, repo-server, application-controller 등) |
+| `notiflex` | Rollout notiflex-api(Canary), notiflex-worker, Kafka, StatefulSet valkey-primary, healthcheck CronJob, Gateway/HTTPRoute, SecretProviderClass |
+| `tenant-*` | 고객 테넌트 환경 (notiflex-api+Valkey, ApplicationSet 관리) — 예: tenant-globex |
+| `argocd` | ArgoCD v3.4.5 (App of Apps: notiflex-root + smb·monitoring·tenants) |
 | `argo-rollouts` | Argo Rollouts 컨트롤러 v1.9.1 |
-| `monitoring` | kube-prometheus-stack (Prometheus, Grafana, Alertmanager, operator, kube-state-metrics, node-exporter) |
+| `monitoring` | kube-prometheus-stack (Prometheus, Grafana, Alertmanager 등) + Tempo |
 | `kube-system` | CSI Secret Store DaemonSet (secrets-store-gke) |

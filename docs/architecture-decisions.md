@@ -107,3 +107,27 @@
 - 고객 추가 = tenants/customers/에 디렉터리 하나 → ApplicationSet이 Application 자동 생성
 - 요금제별 Kustomize 오버레이로 테넌트마다 다른 설정(레플리카·쿼터) 적용
 - (한계) NetworkPolicy는 클러스터 엔포서(Dataplane V2/Calico) 미설치로 현재 미강제
+
+## ADR-014: 메시징/비동기 처리로 Kafka 채택 (8장)
+**시점**: 2026-07 / **결정**: /notify를 Kafka 큐로 비동기화한다(API는 적재 후 202 즉시 반환, 워커가 뒤에서 소비·처리). Valkey Stream·GCP Pub/Sub·RabbitMQ는 쓰지 않는다.
+**이유**:
+- 수신과 처리를 분리해 요청이 몰려도 API 응답을 빠르게 유지(큐가 버스트 흡수)
+- 컨슈머 그룹으로 워커를 수평 확장해 처리량 조절 가능
+- 내구성·재처리(오프셋 기반) — 워커 재시작에도 유실 없이 이어서 소비
+- KRaft로 ZooKeeper 불필요, scratch 이미지 호환 순수 Go 클라이언트(segmentio/kafka-go) 사용
+
+## ADR-015: 분산 추적으로 OpenTelemetry + Tempo 채택 (8장)
+**시점**: 2026-07 / **결정**: OTel로 앱을 계측하고 span을 Tempo로 보내 Grafana에서 조회한다. Jaeger·GCP Cloud Trace·Zipkin은 쓰지 않는다.
+**이유**:
+- 요청이 API→Kafka→워커→Valkey 어느 구간에서 느린지 span별 소요로 특정
+- OTLP 표준·벤더 중립(백엔드 교체 자유), 기존 Grafana에 네이티브 통합
+- Kafka 메시지 헤더로 trace context를 전파해 비동기 경계를 하나의 트레이스로 연결
+- Tempo 단일 바이너리로 경량 설치(data-pool 여유 활용), 메트릭·로그와 관측 3종 완성
+
+## ADR-016: 주기 작업으로 Kubernetes CronJob 채택 (8장)
+**시점**: 2026-07 / **결정**: 주기적 API 헬스체크를 CronJob(5분)으로 실행한다. 앱 내 타이머·Cloud Scheduler·systemd timer는 쓰지 않는다.
+**이유**:
+- K8s 네이티브라 추가 인프라 없이 스케줄 실행(선언적 schedule)
+- 매니페스트를 Git으로 관리해 GitOps 일관성 유지
+- 실패 시 Job이 Failed로 남아 kubectl·kube-state-metrics로 추적 가능
+- concurrencyPolicy·history limit으로 겹침·누적을 제어, kubelet probe·Prometheus 알림과 상호 보완

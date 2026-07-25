@@ -29,9 +29,9 @@
 | ch7 | 7.2 멀티 노드풀 | ✅ | 2026-07-25 | 역할별 3풀(app/data/platform), taint+nodeSelector 격리, default-pool platform 전용 복원 |
 | ch7 | 7.3 App of Apps | ✅ | 2026-07-25 | 루트 Application(notiflex-root)이 argocd/apps/ 재귀 스캔 → smb·monitoring 자식 앱 일괄 관리 |
 | ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-25 | 네임스페이스/테넌트 PoC: ApplicationSet(acme·globex)+AppProject+ResourceQuota+NetworkPolicy, 테넌트별 독립 notiflex+Valkey 검증(/id 카운터 분리) |
-| ch8 | 8.1 메시징 | ⬜ | | |
-| ch8 | 8.2 트레이싱 | ⬜ | | |
-| ch8 | 8.3 CronJob | ⬜ | | |
+| ch8 | 8.1 메시징 | ✅ | 2026-07-25 | Kafka(단일 KRaft)로 /notify 비동기화, 워커 컨슈머, v0.7.0 |
+| ch8 | 8.2 트레이싱 | ✅ | 2026-07-25 | OpenTelemetry+Tempo, Kafka 헤더로 trace 전파, API→워커 단일 트레이스, v0.8.0 |
+| ch8 | 8.3 CronJob | ✅ | 2026-07-25 | notiflex-healthcheck(5분 주기 /health 합성 점검) |
 | ch9 | 9.1 저장소 분석 | ⬜ | | |
 | ch9 | 9.2 회고 | ⬜ | | |
 | ch9 | 9.3 온보딩 문서 | ⬜ | | |
@@ -58,29 +58,35 @@
 | 노드풀 전략 (ch7) | 역할별 노드풀 (app/data/platform, taint+nodeSelector) | 단일 노드풀 유지, 노드 자동프로비저닝(NAP), 클러스터 분리 | 워크로드 역할 격리, stateful(Valkey) 전용 taint 격리, ch6 임시 증설 복원, Spot 선점 시 풀 단위 관리 |
 | 다중 앱 관리 (ch7) | App of Apps (루트 Application + sync-wave) | 개별 Application 수동 관리, ApplicationSet 단독, Helmfile | 루트 하나로 전체 sync/health 조망, 새 앱=argocd/apps에 파일 하나, sync-wave로 설치 순서 제어, GitOps 일관 |
 | 멀티테넌시 (ch7) | 네임스페이스/테넌트 + ApplicationSet(git generator) | 클러스터/테넌트(hard), ns+전용 노드풀, vCluster | 비용 낮고 고객 다수에 적합, ResourceQuota·NetworkPolicy·AppProject 경계, 고객 추가=customers/에 디렉터리 하나, 요금제별 오버레이 |
+| 메시징/비동기 (ch8) | Kafka (단일 KRaft 브로커) | Valkey Stream, GCP Pub/Sub, RabbitMQ | 산업 표준·컨슈머 그룹으로 워커 수평확장, 내구성·재처리, ZooKeeper 불필요(KRaft), scratch 호환 순수 Go 클라이언트 |
+| 분산 추적 (ch8) | OpenTelemetry + Tempo | Jaeger, GCP Cloud Trace, Zipkin | Grafana 네이티브 통합, OTLP 표준(벤더 중립), Kafka 헤더로 비동기 경계 전파, data-pool 여유에 경량 설치 |
+| 스케줄 작업 (ch8) | Kubernetes CronJob | 앱 내 타이머, GKE Cloud Scheduler, systemd timer | K8s 네이티브(추가 인프라 0), GitOps로 선언 관리, 실패 시 Job 기록으로 추적, concurrencyPolicy로 겹침 제어 |
 
 ## 현재 버전
 
 | 컴포넌트 | 버전 | 변경 이력 |
 |---------|------|----------|
 | Go | 1.25 | 초기 (OTel/valkey 대비 처음부터 1.25) |
-| Notiflex 이미지 | api:sha-865dad5 (v0.6.0) | …→v0.4.0(Valkey)→v0.5.0(CSI Secret)→v0.6.0(Canary) |
+| Notiflex 이미지 | api:sha-f5d9a80 (v0.8.0) | …→v0.6.0(Canary)→v0.7.0(Kafka 비동기)→v0.8.0(OTel 추적) |
 | ArgoCD | v3.4.5 | ch3.2 설치 (stable manifest) |
 | Argo Rollouts | v1.9.1 | ch5.3 설치, ch6.3 Canary 전략으로 전환 |
 | Valkey | bitnami/valkey standalone | ch6.1 설치 (공유 카운터) |
 | kube-prometheus-stack | 87.17.0 | ch4.2 설치 (Prometheus+Grafana+Alertmanager) |
 | Loki | 3.6.8 (chart 7.1.0) | ch4.3 설치 (SingleBinary, PV 2Gi) |
 | Fluent Bit | 2.1.0 (chart 2.6.0) | ch4.3 설치 (DaemonSet) |
-| Kafka | - | 미설치 (ch8) |
-| OTel SDK | - | 미설치 (ch8) |
+| Kafka | apache/kafka:3.9.0 | ch8.1 설치 (단일 KRaft 브로커, data-pool, emptyDir) |
+| Tempo | grafana/tempo:2.6.1 | ch8.2 설치 (단일 바이너리, OTLP 수신, monitoring ns) |
+| OTel SDK | go.opentelemetry.io/otel v1.31.0 | ch8.2 앱 계측 (otelhttp + OTLP gRPC 익스포터) |
 
 ## 현재 리소스
 
 | 노드풀 | 머신 타입 | 노드 수 | role/taint | 주요 워크로드 |
 |--------|----------|---------|-----------|-------------|
-| app-pool | e2-medium (Spot, disk 30GB) | 1 | role=app / `dedicated=app:NoSchedule` | notiflex-api(Canary) |
-| data-pool | e2-medium (Spot, disk 30GB) | 1 | role=data / `dedicated=data:NoSchedule` | valkey-primary |
-| default-pool | e2-medium (Spot, disk 30GB) | 2 | role=platform / 없음 | ArgoCD, 관측 스택, Argo Rollouts, CSI Secret DaemonSet |
+| app-pool | e2-medium (Spot, disk 30GB) | 1 | role=app / `dedicated=app:NoSchedule` | notiflex-api(Canary), notiflex-worker |
+| data-pool | e2-medium (Spot, disk 30GB) | 1 | role=data / `dedicated=data:NoSchedule` | valkey-primary, kafka |
+| default-pool | e2-medium (Spot, disk 30GB) | 2 | role=platform / 없음 | ArgoCD, 관측 스택(+Tempo), Argo Rollouts, CronJob, CSI Secret DaemonSet |
+
+> ch8: notiflex-api CPU request 20m→10m(Canary surge 수용). Kafka·Tempo는 emptyDir(임시) — 재시작 시 큐/트레이스 소실.
 
 > ✅ ch7.2에서 역할별 노드풀 분리 완료. ch6.2 임시 3노드 증설 → default-pool platform 전용 2노드로 복원.
 > ⚠️ Loki/FluentBit는 여전히 미복원(로그 수집 중단). 관측 스택 requests 5m~2m 축소·replicas 1도 유지 중 → CPU 여유 생겼으니 복원 검토 가능 (memory: todo-ch7-restore-resources).
