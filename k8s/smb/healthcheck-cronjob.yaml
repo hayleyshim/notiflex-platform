@@ -1,0 +1,49 @@
+# 주기적 합성 헬스체크 (ch8.3 CronJob).
+# 5분마다 파드를 띄워 notiflex-api /health를 호출하고, 실패 시 비정상 종료로
+# Job을 Failed로 남긴다(kubectl·kube-state-metrics로 추적). kubelet probe·Prometheus 알림과 별개의 능동 점검.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: notiflex-healthcheck
+  namespace: notiflex
+  labels:
+    app: notiflex-healthcheck
+spec:
+  schedule: "*/5 * * * *"          # 5분마다
+  concurrencyPolicy: Forbid        # 이전 실행이 안 끝났으면 겹쳐 실행하지 않음
+  startingDeadlineSeconds: 60      # 스케줄 놓쳤을 때 60초 내에만 시작
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0              # 재시도 없이 1회 (다음 스케줄이 다시 점검)
+      activeDeadlineSeconds: 30
+      template:
+        metadata:
+          labels:
+            app: notiflex-healthcheck
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: healthcheck
+              image: curlimages/curl:8.10.1
+              command:
+                - sh
+                - -c
+                - |
+                  echo "[healthcheck] GET /health"
+                  if curl -fsS -m 5 http://notiflex-api.notiflex.svc.cluster.local/health; then
+                    echo ""
+                    echo "[healthcheck] OK"
+                  else
+                    echo ""
+                    echo "[healthcheck] FAILED"
+                    exit 1
+                  fi
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
