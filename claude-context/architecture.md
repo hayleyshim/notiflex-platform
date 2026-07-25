@@ -100,17 +100,20 @@ argocd/root.yaml  (Application: notiflex-root, path=argocd/apps recurse)
 고객사(테넌트)마다 격리된 환경을 **한 클러스터 안 네임스페이스 단위**로 제공한다.
 
 ```
-ApplicationSet(tenants, list: acme/globex)  ← argocd/apps/tenants-appset.yaml
-   └─ 테넌트마다 Application(tenant-<이름>) 자동 생성
-        → tenants/base (Kustomize) 를 ns tenant-<이름> 에 배포
-             ├─ notiflex-api (Deployment) + Service
-             ├─ valkey (테넌트 전용 무인증, Deployment) + Service
-             ├─ ResourceQuota + LimitRange   (자원 상한)
-             └─ NetworkPolicy                (네트워크 격리)
+ApplicationSet(tenants, git 디렉터리 generator: tenants/customers/*)
+   └─ 고객 디렉터리마다 Application(tenant-<이름>) 자동 생성
+        → tenants/customers/<이름> (Kustomize 오버레이) 를 ns tenant-<이름> 에 배포
+             └─ ../../base 참조:
+                  ├─ notiflex-api (Deployment) + Service
+                  ├─ valkey (테넌트 전용 무인증, Deployment) + Service
+                  ├─ ResourceQuota + LimitRange   (자원 상한)
+                  └─ NetworkPolicy                (네트워크 격리)
+             + 오버레이 패치: 요금제별 레플리카·쿼터·라벨(tenant/tier)
 AppProject(tenants)  ← 배포 대상을 tenant-* ns + 이 저장소로 제한(경계)
 ```
 
-- **고객 추가 = ApplicationSet list에 한 줄** → 격리 네임스페이스·앱·쿼터 자동 생성.
+- **고객 추가 = `tenants/customers/<이름>/kustomization.yaml` 디렉터리 하나 추가** → 자동 편입. (절차: `tenants/README.md`)
+- 요금제별 오버레이: acme=enterprise(레플리카 2, 쿼터 500m/20p), globex=standard(레플리카 1, 250m/10p).
 - 검증: acme `/id` 1→2→3, globex 독립적으로 1부터 → **테넌트별 데이터(Valkey) 분리 확인**.
 - 효과 있는 격리: 네임스페이스, ResourceQuota/LimitRange, AppProject 경계.
 - ⚠️ **NetworkPolicy 미강제**: 클러스터에 엔포서(Dataplane V2/Calico) 미설치. 매니페스트는 존재하나 실제 차단은 `--enable-network-policy` 후에야 유효.
