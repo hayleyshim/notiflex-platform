@@ -1,4 +1,4 @@
-# Notiflex 아키텍처 스냅샷 (8장 완료 시점)
+# Notiflex 아키텍처 스냅샷 (9장 완료 시점)
 
 > 이 문서는 **현재 시점의 아키텍처 한눈 보기**다. AI가 매 대화에서 전체 그림을 빠르게 잡도록 돕는다.
 > 세부 진행 기록은 `JOURNEY.md`, 결정 이유는 `docs/architecture-decisions.md`(ADR), 매니페스트는 `k8s/`를 참조한다.

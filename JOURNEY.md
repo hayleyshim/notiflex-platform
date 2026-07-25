@@ -36,7 +36,33 @@
 | ch9 | 9.2 회고 | ✅ | 2026-07-25 | 여정 궤적·배움·부채 ledger (docs/retrospective.md) |
 | ch9 | 9.3 온보딩 문서 | ✅ | 2026-07-25 | docs/onboarding.md 신설 (읽을 순서·저장소 지도·자주 하는 작업) |
 | ch9 | 9.4 GitAIOps 분석 | ✅ | 2026-07-25 | Git=AI·Ops 신뢰경계, 제어 루프·빈틈(IaC) (retrospective.md §6) |
-| ch9 | 9.5 마무리 | ⬜ | | |
+| ch9 | 9.5 마무리 | ✅ | 2026-07-25 | 프로젝트 종료 요약·다음 목표 정리 (아래 "프로젝트 마무리") |
+
+## 프로젝트 마무리 (ch9.5)
+
+**2026-07-25 기준, ch2~ch9 전 챕터 완료.** 작은 Go 알림 API가 GitOps로 운영되는 플랫폼으로 진화했다.
+
+### 최종 도달점
+- **배포**: Rolling → Blue/Green → Canary (Argo Rollouts)
+- **GitOps**: ArgoCD App of Apps + sync-wave + ApplicationSet (멀티테넌시 자동 온보딩)
+- **인프라**: 역할별 노드풀 3개(app/data/platform, taint 격리)
+- **비동기**: Kafka(KRaft) 큐 + 워커 컨슈머
+- **관측**: 메트릭(Prometheus) + 추적(OpenTelemetry→Tempo). 로그(Loki)는 미복원.
+- **문서**: 3층 지식구조 + ADR 16건 + 가드레일 + 회고/온보딩
+
+### 산출물 지도
+- 여정·부채 회고: [docs/retrospective.md](docs/retrospective.md)
+- 신규 합류자: [docs/onboarding.md](docs/onboarding.md)
+- 결정 근거: [docs/architecture-decisions.md](docs/architecture-decisions.md) (ADR-001~016)
+- 현재 아키텍처: [claude-context/architecture.md](claude-context/architecture.md)
+- 위험 작업 절차: [command-guardrails/](command-guardrails/)
+
+### 다음 목표 (우선순위)
+프로덕션 전환의 관문 = 부채 상환. 상세 ledger는 retrospective.md §5.
+1. **자원 최적화** (즉효·저위험): CPU request 현실화, Tempo→data-pool 이동, 빈 tenant-acme 정리
+2. **로그 복원**: Loki/Fluent Bit 재설치 (1번으로 메모리 확보 후)
+3. **상태 영속화**: Kafka·Tempo·Loki에 PVC (Spot 선점 데이터 손실 차단)
+4. **GitOps 완결**: 인프라(노드풀/클러스터)를 Terraform으로 Git 편입, Helm 릴리스를 ArgoCD로 편입
 
 ## 도구 선택 기록
 
