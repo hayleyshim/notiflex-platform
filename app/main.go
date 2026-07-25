@@ -171,6 +171,8 @@ func runAPI() {
 		Topic:                  notifyTopic,
 		Balancer:               &kafka.LeastBytes{},
 		AllowAutoTopicCreation: true,
+		// 기본 배치 타임아웃(1s)이 단건 요청 응답을 늦추므로 10ms로 낮춰 즉시 flush
+		BatchTimeout: 10 * time.Millisecond,
 	}
 	defer kafkaWriter.Close()
 
