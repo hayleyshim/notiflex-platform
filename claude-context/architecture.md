@@ -85,12 +85,13 @@ Argo Rollouts: 20%→50%→80%→100% 점진 전환 (각 30초 pause)
 
 ```
 argocd/root.yaml  (Application: notiflex-root, path=argocd/apps recurse)
-   └─ 스캔 → 자식 Application 자동 생성·동기화
-        ├─ argocd/apps/notiflex-smb.yaml         → k8s/smb (ns notiflex)
-        └─ argocd/apps/notiflex-monitoring.yaml  → k8s/monitoring (ns monitoring)
+   └─ 스캔 → 자식 Application 자동 생성·동기화 (sync-wave 순서대로)
+        ├─ [wave 0] argocd/apps/notiflex-monitoring.yaml → k8s/monitoring (ns monitoring)
+        └─ [wave 1] argocd/apps/notiflex-smb.yaml        → k8s/smb (ns notiflex)
 ```
 
-- 새 앱 추가 = `argocd/apps/`에 Application 파일 하나 추가 → 루트가 자동 편입.
+- 설치 순서: `argocd.argoproj.io/sync-wave`로 제어. **관측(wave 0) → 앱(wave 1)** — 앱이 뜰 때 알림·대시보드가 이미 준비됨. 낮은 wave가 Healthy 된 뒤 다음 wave 진행.
+- 새 앱 추가 = `argocd/apps/`에 Application 파일 하나 추가(원하는 wave 지정) → 루트가 자동 편입.
 - 범위: git 매니페스트만(smb·monitoring). Helm 릴리스(valkey, kube-prometheus-stack)는 아직 GitOps 밖.
 - k8s/monitoring은 이전까지 `kubectl apply` 수동 관리 → 이번에 GitOps로 편입.
 

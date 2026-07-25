@@ -5,6 +5,9 @@ kind: Application
 metadata:
   name: notiflex-monitoring
   namespace: argocd
+  annotations:
+    # 설치 순서: wave 0 (앱보다 먼저 관측 스택 준비)
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
