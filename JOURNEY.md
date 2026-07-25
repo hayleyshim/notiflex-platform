@@ -55,6 +55,9 @@
 | 캐시/상태 공유 (ch6) | Valkey | Redis, Memcached, DragonflyDB | Redis 호환+BSD 라이선스, INCR 원자적 ID, 영속성(재시작 유지), Bitnami 차트 |
 | 시크릿 관리 (ch6) | CSI Driver + Secret Manager | Sealed Secrets, External Secrets, kubectl secret | GKE 네이티브, Workload Identity로 SA키 불필요, 단일 진실 소스, 파일 마운트 |
 | 배포 전략 진화 (ch6) | Canary (Argo Rollouts) | Blue/Green 유지, Rolling | 20/50/80 점진으로 위험 최소화, 리소스 1.2x(vs B/G 2x), 도구 변경 없이 strategy만 전환 |
+| 노드풀 전략 (ch7) | 역할별 노드풀 (app/data/platform, taint+nodeSelector) | 단일 노드풀 유지, 노드 자동프로비저닝(NAP), 클러스터 분리 | 워크로드 역할 격리, stateful(Valkey) 전용 taint 격리, ch6 임시 증설 복원, Spot 선점 시 풀 단위 관리 |
+| 다중 앱 관리 (ch7) | App of Apps (루트 Application + sync-wave) | 개별 Application 수동 관리, ApplicationSet 단독, Helmfile | 루트 하나로 전체 sync/health 조망, 새 앱=argocd/apps에 파일 하나, sync-wave로 설치 순서 제어, GitOps 일관 |
+| 멀티테넌시 (ch7) | 네임스페이스/테넌트 + ApplicationSet(git generator) | 클러스터/테넌트(hard), ns+전용 노드풀, vCluster | 비용 낮고 고객 다수에 적합, ResourceQuota·NetworkPolicy·AppProject 경계, 고객 추가=customers/에 디렉터리 하나, 요금제별 오버레이 |
 
 ## 현재 버전
 

@@ -82,3 +82,28 @@
 - 각 단계에서 pause로 관찰, 문제 시 abort로 stable 즉시 복원
 - 리소스 효율 — Canary 1.2x vs Blue/Green 2x (CPU 제약 환경에 유리)
 - 새 도구 설치 없이 같은 Rollout CRD에서 strategy만 전환 ("점진적 고도화")
+
+## ADR-011: 역할별 노드풀 분리 (7장)
+**시점**: 2026-07 / **결정**: 단일 default-pool을 역할별 3개 노드풀(app/data/platform)로 분리하고, 전용 풀(app·data)은 taint+nodeSelector로 격리한다. 노드 자동프로비저닝(NAP)·클러스터 분리는 쓰지 않는다.
+**이유**:
+- 워크로드 역할 분리 — 애플리케이션(app-pool)·상태저장(data-pool)·플랫폼(default-pool)을 노드 단위로 격리
+- stateful인 Valkey를 taint(dedicated=data:NoSchedule)로 전용 노드에 고정해 노이지 네이버 차단
+- ch6.2에서 CPU 확보용으로 임시 증설한 3노드를 풀 분리로 해소 (default-pool을 platform 전용 2노드로 복원)
+- Spot 선점 등 장애 시 풀 단위로 노드를 관리·복구 가능
+
+## ADR-012: 다중 앱 관리로 App of Apps 채택 (7장)
+**시점**: 2026-07 / **결정**: 여러 ArgoCD Application을 루트 Application 하나(App of Apps)로 묶어 관리하고, sync-wave로 설치 순서를 제어한다. 개별 수동 관리·ApplicationSet 단독은 쓰지 않는다.
+**이유**:
+- 루트 앱 하나로 전체 앱의 sync/health를 한눈에 조망
+- 새 앱 추가 = argocd/apps/에 파일 하나 → 루트가 자동 편입 (온보딩 마찰 최소)
+- sync-wave로 앱 간 설치 순서 보장 (관측 wave 0 → 앱 wave 1)
+- 앱 목록 자체가 Git에 선언되어 GitOps 일관성 유지
+
+## ADR-013: 멀티테넌시로 네임스페이스/테넌트 + ApplicationSet 채택 (7장)
+**시점**: 2026-07 / **결정**: 고객사별 격리를 한 클러스터 안 네임스페이스 단위로 제공하고, ApplicationSet(git 디렉터리 generator)로 온보딩을 자동화한다. 클러스터/테넌트(hard)·vCluster는 쓰지 않는다.
+**이유**:
+- 비용이 낮고 고객 수가 많은 초기 단계에 적합 (클러스터/테넌트는 비용·운영 부담이 큼)
+- ResourceQuota·LimitRange·AppProject 경계로 자원·배포를 격리·강제
+- 고객 추가 = tenants/customers/에 디렉터리 하나 → ApplicationSet이 Application 자동 생성
+- 요금제별 Kustomize 오버레이로 테넌트마다 다른 설정(레플리카·쿼터) 적용
+- (한계) NetworkPolicy는 클러스터 엔포서(Dataplane V2/Calico) 미설치로 현재 미강제
