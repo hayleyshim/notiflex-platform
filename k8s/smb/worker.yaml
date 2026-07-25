@@ -29,7 +29,7 @@ spec:
         - name: notiflex-worker
           # notiflex API와 동일 이미지 (MODE=worker로 컨슈머 구동). CI는 rollout.yaml만
           # 자동 갱신하므로, 앱 변경 시 이 태그는 수동으로 맞춘다(워크플로 스코프 제약).
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-5a73d87
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-1765e2b
           env:
             - name: MODE
               value: worker
