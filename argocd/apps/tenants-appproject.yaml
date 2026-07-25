@@ -1,0 +1,25 @@
+# 테넌트 경계용 AppProject: 이 프로젝트의 앱은 tenant-* 네임스페이스에만,
+# 이 저장소에서만 배포할 수 있다 (고객 앱이 다른 영역을 못 건드리게 제한).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tenants
+  namespace: argocd
+  annotations:
+    # AppProject가 ApplicationSet/테넌트 앱보다 먼저 존재해야 하므로 wave -1
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: 고객사(테넌트) 경계
+  sourceRepos:
+    - https://github.com/hayleyshim/notiflex-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: 'tenant-*'
+  # CreateNamespace=true로 tenant-* 네임스페이스 생성 허용
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  # 테넌트 네임스페이스 안에서는 모든 네임스페이스 리소스 허용
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'

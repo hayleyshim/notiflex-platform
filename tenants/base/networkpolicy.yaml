@@ -1,0 +1,28 @@
+# 테넌트 네트워크 격리: 기본 차단 후 (1) 동일 네임스페이스 내부 통신과
+# (2) DNS(kube-dns)만 허용. 다른 고객 네임스페이스와의 트래픽은 차단된다.
+# ⚠️ 실제 차단은 클러스터에 NetworkPolicy 엔포서(GKE Dataplane V2/Calico)가 켜져 있어야 유효.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-isolation
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 같은 네임스페이스(같은 고객)의 파드만 인그레스 허용
+    - from:
+        - podSelector: {}
+  egress:
+    # 같은 네임스페이스 내부 통신 허용 (notiflex → valkey)
+    - to:
+        - podSelector: {}
+    # DNS 조회 허용 (kube-dns)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

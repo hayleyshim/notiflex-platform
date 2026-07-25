@@ -1,0 +1,35 @@
+# 고객(테넌트)마다 Application을 자동 생성하는 ApplicationSet.
+# 고객 추가 = 아래 list.elements에 한 줄 추가 → tenants/base가 새 네임스페이스에 배포됨.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenants
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - tenant: acme
+          - tenant: globex
+  template:
+    metadata:
+      name: 'tenant-{{.tenant}}'
+    spec:
+      project: tenants
+      source:
+        repoURL: https://github.com/hayleyshim/notiflex-platform.git
+        targetRevision: main
+        path: tenants/base
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'tenant-{{.tenant}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

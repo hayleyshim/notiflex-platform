@@ -1,0 +1,44 @@
+# 테넌트 전용 경량 Valkey (무인증). 고객마다 독립 카운터를 갖는다.
+# notiflex는 같은 네임스페이스의 valkey:6379로 접속한다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey
+  labels:
+    app: valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey
+  template:
+    metadata:
+      labels:
+        app: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:8-alpine
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey
+  labels:
+    app: valkey
+spec:
+  selector:
+    app: valkey
+  ports:
+    - port: 6379
+      targetPort: 6379
