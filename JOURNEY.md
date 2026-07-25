@@ -28,7 +28,7 @@
 | ch6 | 6.4 아키텍처 스냅샷 | ✅ | 2026-07-19 | claude-context/architecture.md 신설 |
 | ch7 | 7.2 멀티 노드풀 | ✅ | 2026-07-25 | 역할별 3풀(app/data/platform), taint+nodeSelector 격리, default-pool platform 전용 복원 |
 | ch7 | 7.3 App of Apps | ✅ | 2026-07-25 | 루트 Application(notiflex-root)이 argocd/apps/ 재귀 스캔 → smb·monitoring 자식 앱 일괄 관리 |
-| ch7 | 7.4 멀티테넌시 | ⬜ | | |
+| ch7 | 7.4 멀티테넌시 | ✅ | 2026-07-25 | 네임스페이스/테넌트 PoC: ApplicationSet(acme·globex)+AppProject+ResourceQuota+NetworkPolicy, 테넌트별 독립 notiflex+Valkey 검증(/id 카운터 분리) |
 | ch8 | 8.1 메시징 | ⬜ | | |
 | ch8 | 8.2 트레이싱 | ⬜ | | |
 | ch8 | 8.3 CronJob | ⬜ | | |

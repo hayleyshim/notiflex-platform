@@ -95,6 +95,28 @@ argocd/root.yaml  (Application: notiflex-root, path=argocd/apps recurse)
 - 범위: git 매니페스트만(smb·monitoring). Helm 릴리스(valkey, kube-prometheus-stack)는 아직 GitOps 밖.
 - k8s/monitoring은 이전까지 `kubectl apply` 수동 관리 → 이번에 GitOps로 편입.
 
+### 멀티테넌시 (ch7.4, 네임스페이스/테넌트 PoC)
+
+고객사(테넌트)마다 격리된 환경을 **한 클러스터 안 네임스페이스 단위**로 제공한다.
+
+```
+ApplicationSet(tenants, list: acme/globex)  ← argocd/apps/tenants-appset.yaml
+   └─ 테넌트마다 Application(tenant-<이름>) 자동 생성
+        → tenants/base (Kustomize) 를 ns tenant-<이름> 에 배포
+             ├─ notiflex-api (Deployment) + Service
+             ├─ valkey (테넌트 전용 무인증, Deployment) + Service
+             ├─ ResourceQuota + LimitRange   (자원 상한)
+             └─ NetworkPolicy                (네트워크 격리)
+AppProject(tenants)  ← 배포 대상을 tenant-* ns + 이 저장소로 제한(경계)
+```
+
+- **고객 추가 = ApplicationSet list에 한 줄** → 격리 네임스페이스·앱·쿼터 자동 생성.
+- 검증: acme `/id` 1→2→3, globex 독립적으로 1부터 → **테넌트별 데이터(Valkey) 분리 확인**.
+- 효과 있는 격리: 네임스페이스, ResourceQuota/LimitRange, AppProject 경계.
+- ⚠️ **NetworkPolicy 미강제**: 클러스터에 엔포서(Dataplane V2/Calico) 미설치. 매니페스트는 존재하나 실제 차단은 `--enable-network-policy` 후에야 유효.
+- 배치: 테넌트 파드는 taint 없는 default-pool(platform)에 스케줄. 노드 레벨 격리가 필요하면 테넌트 전용 노드풀로 확장 가능.
+- 프로덕션 `k8s/smb`(단일 notiflex)와 별개 경로(`tenants/`)라 서로 영향 없음.
+
 ## 관측 가능성
 
 | 도구 | 역할 | 상태 |
