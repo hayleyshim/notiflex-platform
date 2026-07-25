@@ -12,10 +12,12 @@ import (
 
 	kafka "github.com/segmentio/kafka-go"
 	"github.com/valkey-io/valkey-go"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 // version은 현재 실행 중인 Notiflex API의 버전이다.
-const version = "v0.7.0"
+const version = "v0.8.0"
 
 // valkeyClient는 Pod 간 공유되는 중앙 카운터(Valkey)에 연결하는 클라이언트다.
 var valkeyClient valkey.Client
@@ -150,9 +152,15 @@ func notifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	// produce span 생성 후, trace context를 Kafka 메시지 헤더에 주입 → 워커까지 전파
+	ctx, span := tracer.Start(r.Context(), "kafka.produce")
+	defer span.End()
+	msg := kafka.Message{Value: body}
+	otel.GetTextMapPropagator().Inject(ctx, kafkaHeaderCarrier{&msg})
+
+	wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := kafkaWriter.WriteMessages(ctx, kafka.Message{Value: body}); err != nil {
+	if err := kafkaWriter.WriteMessages(wctx, msg); err != nil {
 		log.Printf("Kafka produce 실패: %v", err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "queue unavailable", "pod": podName()})
 		return
@@ -163,6 +171,9 @@ func notifyHandler(w http.ResponseWriter, r *http.Request) {
 
 // runAPI는 HTTP 서버 + Kafka 프로듀서를 구동한다 (기본 모드).
 func runAPI() {
+	shutdown := initTracer("notiflex-api")
+	defer shutdown()
+
 	valkeyClient = connectValkey()
 	defer valkeyClient.Close()
 
@@ -182,14 +193,20 @@ func runAPI() {
 	mux.HandleFunc("/version", versionHandler)
 	mux.HandleFunc("/notify", notifyHandler)
 
+	// otelhttp로 요청마다 서버 span 자동 생성 (HTTP 헤더의 traceparent도 이어받음)
+	handler := otelhttp.NewHandler(mux, "notiflex-api")
+
 	log.Printf("Notiflex API %s (mode=api) listening on :8080 (pod=%s)", version, podName())
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := http.ListenAndServe(":8080", handler); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
 
 // runWorker는 Kafka 컨슈머로 알림을 뒤에서 처리한다 (mode=worker).
 func runWorker() {
+	shutdown := initTracer("notiflex-worker")
+	defer shutdown()
+
 	valkeyClient = connectValkey()
 	defer valkeyClient.Close()
 
@@ -218,11 +235,21 @@ func runWorker() {
 			time.Sleep(2 * time.Second)
 			continue
 		}
+		// 메시지 헤더에서 부모 trace context 추출 → API produce span의 자식으로 연결
+		pctx := otel.GetTextMapPropagator().Extract(context.Background(), kafkaHeaderCarrier{&m})
+		pctx, span := tracer.Start(pctx, "process notification")
+
 		// 실제 알림 전송을 가정한 처리(느린 작업 시뮬레이션)
 		time.Sleep(200 * time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+		// Valkey INCR을 별도 span으로 (구간별 소요 확인)
+		_, vspan := tracer.Start(pctx, "valkey.incr")
+		ctx, cancel := context.WithTimeout(pctx, 3*time.Second)
 		n, _ := valkeyClient.Do(ctx, valkeyClient.B().Incr().Key(processedKey).Build()).AsInt64()
 		cancel()
+		vspan.End()
+
+		span.End()
 		log.Printf("처리 완료 #%d: %s", n, string(m.Value))
 	}
 }

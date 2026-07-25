@@ -39,6 +39,9 @@ spec:
                   fieldPath: metadata.name
             - name: KAFKA_ADDR
               value: kafka.notiflex.svc.cluster.local:9092
+            # 분산 추적 span을 Tempo로 전송 (OTLP gRPC)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: tempo.monitoring.svc.cluster.local:4317
             - name: VALKEY_ADDR
               value: valkey-primary.notiflex.svc.cluster.local:6379
             - name: VALKEY_PASSWORD
