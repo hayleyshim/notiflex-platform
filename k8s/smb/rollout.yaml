@@ -55,7 +55,8 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 20m
+              # app-pool 포화로 Canary surge 파드 수용 위해 10m로 축소 (실사용 ~1-5m)
+              cpu: 10m
               memory: 32Mi
             limits:
               cpu: 200m
