@@ -28,7 +28,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: notiflex-api
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-1b3de63
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-f5d9a80
           ports:
             - containerPort: 8080
           env:
