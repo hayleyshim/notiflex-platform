@@ -26,7 +26,7 @@
 | ch6 | 6.2 시크릿 관리 | ✅ | 2026-07-19 | CSI + Secret Manager + Workload Identity, 파일 마운트 |
 | ch6 | 6.3 Canary 전환 | ✅ | 2026-07-19 | Blue/Green→Canary(20/50/80), v0.6.0 점진 배포 |
 | ch6 | 6.4 아키텍처 스냅샷 | ✅ | 2026-07-19 | claude-context/architecture.md 신설 |
-| ch7 | 7.2 멀티 노드풀 | ⬜ | | |
+| ch7 | 7.2 멀티 노드풀 | ✅ | 2026-07-25 | 역할별 3풀(app/data/platform), taint+nodeSelector 격리, default-pool platform 전용 복원 |
 | ch7 | 7.3 App of Apps | ⬜ | | |
 | ch7 | 7.4 멀티테넌시 | ⬜ | | |
 | ch8 | 8.1 메시징 | ⬜ | | |
@@ -73,11 +73,14 @@
 
 ## 현재 리소스
 
-| 노드풀 | 머신 타입 | 노드 수 | 주요 워크로드 |
-|--------|----------|---------|-------------|
-| default-pool | e2-medium (Spot, disk 30GB) | **3 (임시 증설)** | notiflex-api(Canary), Valkey, ArgoCD, 관측 스택, CSI Secret DaemonSet |
+| 노드풀 | 머신 타입 | 노드 수 | role/taint | 주요 워크로드 |
+|--------|----------|---------|-----------|-------------|
+| app-pool | e2-medium (Spot, disk 30GB) | 1 | role=app / `dedicated=app:NoSchedule` | notiflex-api(Canary) |
+| data-pool | e2-medium (Spot, disk 30GB) | 1 | role=data / `dedicated=data:NoSchedule` | valkey-primary |
+| default-pool | e2-medium (Spot, disk 30GB) | 2 | role=platform / 없음 | ArgoCD, 관측 스택, Argo Rollouts, CSI Secret DaemonSet |
 
-> ⚠️ ch6.2 CSI(240m) 수용 위해 default-pool 2→3노드 임시 증설 + Loki/FluentBit 임시 제거 + 관측 스택 requests 5m~2m 축소 + replicas 1. **ch7.2 노드풀 추가 후 복원** (memory: todo-ch7-restore-resources).
+> ✅ ch7.2에서 역할별 노드풀 분리 완료. ch6.2 임시 3노드 증설 → default-pool platform 전용 2노드로 복원.
+> ⚠️ Loki/FluentBit는 여전히 미복원(로그 수집 중단). 관측 스택 requests 5m~2m 축소·replicas 1도 유지 중 → CPU 여유 생겼으니 복원 검토 가능 (memory: todo-ch7-restore-resources).
 
 ## 트러블슈팅 이력
 

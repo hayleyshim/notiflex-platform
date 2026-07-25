@@ -19,13 +19,26 @@
 |------|-----|
 | 클러스터 | `notiflex-cluster` (GKE Standard, Zonal) |
 | 리전/존 | `asia-northeast3` / `asia-northeast3-a` (서울) |
-| 노드풀 | `default-pool` — e2-medium **3노드**(Spot, disk 30GB) |
+| 노드풀 (역할별, ch7.2) | `app-pool` role=app · `data-pool` role=data · `default-pool` role=platform (모두 e2-medium Spot, disk 30GB) |
 | kubectl 컨텍스트 | `gke-sysnet4admin_book_gitaiops` |
 | 활성화 기능 | Gateway API(standard), Workload Identity, Secret Manager CSI addon |
 | 외부 IP | `35.216.9.148` (Gateway) |
 
-> ⚠️ default-pool은 ch6.2 CSI(240m) 수용을 위해 2→3노드로 임시 증설. ch7 노드풀 추가 후 복원 검토.
-> ⚠️ ch6.2에서 CPU 확보 위해 Loki·FluentBit 임시 제거됨(로그 수집 일시 중단). ch7.2에서 복원 예정.
+### 역할별 노드풀 (ch7.2 멀티 노드풀)
+
+| 노드풀 | role 라벨 | taint | 노드 수 | 워크로드 |
+|--------|-----------|-------|---------|----------|
+| `app-pool` | `role=app` | `dedicated=app:NoSchedule` | 1 | notiflex-api |
+| `data-pool` | `role=data` | `dedicated=data:NoSchedule` | 1 | valkey-primary (stateful 격리) |
+| `default-pool` | `role=platform` | 없음 | 2 | ArgoCD, kube-prometheus-stack, Argo Rollouts |
+
+- 배치 방식: 전용 풀은 **taint로 격리**, 대상 워크로드는 `nodeSelector`+`toleration`으로 유입. platform은 taint 없는 default-pool에 자연 수렴.
+- notiflex-api 배치는 `k8s/smb/rollout.yaml`(GitOps)에 선언. Valkey는 리포 밖 Helm 릴리스라 StatefulSet에 직접 패치(durable화하려면 Helm values에 반영 필요).
+- GKE 시스템 애드온(kube-dns, konnectivity 등)은 모든 taint를 tolerate → 전역 배치(역할 격리와 무관).
+
+> ✅ ch6.2 임시 3노드 증설은 ch7.2에서 해소: app/data를 전용 풀로 분리하고 default-pool은 platform 전용 2노드로 복원.
+> ⚠️ Spot 선점 이력: 5일 방치 중 default-pool Spot VM 전원 TERMINATED된 적 있음 → `gcloud compute instances start`로 복구. Spot은 상시 선점 가능.
+> ⚠️ ch6.2에서 CPU 확보 위해 Loki·FluentBit 임시 제거됨(로그 수집 일시 중단). 복원 예정.
 
 ## 컴포넌트 다이어그램 (트래픽 흐름)
 

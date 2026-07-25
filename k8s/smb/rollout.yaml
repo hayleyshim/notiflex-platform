@@ -17,6 +17,15 @@ spec:
     spec:
       # Workload Identity로 GCP Secret Manager에 접근하는 KSA
       serviceAccountName: notiflex-sa
+      # 역할별 노드풀 배치 (ch7.2): 애플리케이션은 app-pool에만 스케줄
+      nodeSelector:
+        role: app
+      # app-pool의 dedicated=app:NoSchedule taint 허용 (다른 워크로드 격리)
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: app
+          effect: NoSchedule
       containers:
         - name: notiflex-api
           image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-865dad5
