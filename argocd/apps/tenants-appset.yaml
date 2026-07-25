@@ -21,6 +21,9 @@ spec:
     metadata:
       # 디렉터리 이름(고객명)으로 Application·네임스페이스를 만든다.
       name: 'tenant-{{.path.basename}}'
+      # 오프보딩(디렉터리 삭제) 시 워크로드까지 cascade 삭제되도록 finalizer 부여.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
     spec:
       project: tenants
       source:
