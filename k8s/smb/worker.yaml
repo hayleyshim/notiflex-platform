@@ -27,8 +27,9 @@ spec:
           effect: NoSchedule
       containers:
         - name: notiflex-worker
-          # CI가 rollout.yaml과 함께 이 이미지 태그를 갱신한다.
-          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-865dad5
+          # notiflex API와 동일 이미지 (MODE=worker로 컨슈머 구동). CI는 rollout.yaml만
+          # 자동 갱신하므로, 앱 변경 시 이 태그는 수동으로 맞춘다(워크플로 스코프 제약).
+          image: asia-northeast3-docker.pkg.dev/hayley-gitaiops-project/notiflex/api:sha-5a73d87
           env:
             - name: MODE
               value: worker
