@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -96,6 +97,23 @@ func kafkaBrokers() []string {
 	return []string{addr}
 }
 
+// waitForKafka는 브로커에 TCP로 접속될 때까지 대기한다.
+// 컨슈머 리더를 Kafka 준비 전에 만들면 그룹 조인에 실패한 채 멈추므로,
+// (Kafka가 아직 없을 때 시작한 워커가 조용히 소비를 멈추는 문제) 준비 후 리더를 만든다.
+func waitForKafka() {
+	addr := kafkaBrokers()[0]
+	for i := 0; ; i++ {
+		conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+		if err == nil {
+			conn.Close()
+			log.Printf("Kafka 접속 확인 (%s)", addr)
+			return
+		}
+		log.Printf("Kafka 대기 %d회 (%s): %v", i+1, addr, err)
+		time.Sleep(3 * time.Second)
+	}
+}
+
 // healthHandler는 서비스 상태를 반환한다. (readiness/liveness probe용)
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "pod": podName()})
@@ -179,6 +197,9 @@ func runWorker() {
 		mux.HandleFunc("/health", healthHandler)
 		_ = http.ListenAndServe(":8080", mux)
 	}()
+
+	// Kafka가 준비될 때까지 대기한 뒤 리더를 만든다 (조인 실패로 멈추는 문제 방지).
+	waitForKafka()
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: kafkaBrokers(),
